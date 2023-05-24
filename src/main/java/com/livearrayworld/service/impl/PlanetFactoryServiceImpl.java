@@ -213,7 +213,7 @@ public class PlanetFactoryServiceImpl implements PlanetFactoryService {
 		neptuno.setMasaRocosa(new BigDecimal("1024.13"));
 		neptuno.setMasaBlanda(new BigDecimal("17.15"));
 		
-		lstPlanetas.put("Mercurio", neptuno);
+		lstPlanetas.put("neptuno", neptuno);
 	}
 
 }

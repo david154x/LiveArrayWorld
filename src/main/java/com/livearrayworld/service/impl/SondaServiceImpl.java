@@ -4,12 +4,15 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.livearrayworld.dto.SondaDTO;
+import com.livearrayworld.entity.Humano;
 import com.livearrayworld.entity.Planeta;
+import com.livearrayworld.service.HumanFactoryService;
 import com.livearrayworld.service.PlanetFactoryService;
 import com.livearrayworld.service.SondaService;
 import com.livearrayworld.service.ValidationService;
@@ -23,8 +26,12 @@ public class SondaServiceImpl implements SondaService {
 	@Autowired
 	private PlanetFactoryService planetFactoryService;
 	
+	@Autowired
+	private HumanFactoryService humanFactoryService;
+	
 	private Map<String, Object> respuesta;
 	private StringBuilder log;
+	private Map<String, Object> planDeSupervivencia;
 
 	@Override
 	public Map<String, Object> lanzarSondaInvestigacion(SondaDTO sondaDTO) {
@@ -71,14 +78,18 @@ public class SondaServiceImpl implements SondaService {
 	
 	private void crearInformeDeLanzamientoYAterrizaje() {
 		Planeta planeta = (Planeta) respuesta.get("planeta");
+		SondaDTO sondaDTO = (SondaDTO) respuesta.get("SondaDTO");
 		StringBuilder stBuild = null;
 		try {
+			
+			
 			stBuild = new StringBuilder();
 			stBuild.append(pintarNave(planeta));
 			stBuild.append(darInformeDeEstado(planeta));
 			stBuild.append(darInformeDeProvisiones());
 			stBuild.append(definirPrimerDiaTranscurrido(planeta));
-//			stBuild.append(inicioInvestigacionSupervivencia());
+			stBuild.append(darInformeDiagnosticoVital(planeta));
+			stBuild.append(inicioInvestigacionSupervivencia(sondaDTO));
 			
 			log.append(stBuild.toString());
 			System.out.println(log);
@@ -190,22 +201,42 @@ public class SondaServiceImpl implements SondaService {
 		return stBuild.toString();
 	}
 	
-	private String inicioInvestigacionSupervivencia() {
+	private String definirPrimerDiaTranscurrido(Planeta planeta) {
 		StringBuilder stBuild = null;
+		SondaDTO sondaDTO = null;
+		BigDecimal horasDiaPlanetaSeleccionado = null;
+		Integer horasTierra = 24;
+		Integer horasDiferencia = null;
+		BigDecimal horasDiferenciaTierra = null;
+		BigDecimal horasXDia = null;
 		try {
-//			stBuild = new StringBuilder();
-//			stBuild.append("Informe de provisiones \n")
-//				   .append(" \n")
-//				   .append("------------------------------------------------------- \n")
-//				   .append("------------------------------------------------------- \n")
-//				   .append(" \n")
-//				   .append("Barriles de agua: "+sondaDTO.getCondicionesNaturalesEntity().getBarrilAgua()+ " \n")
-//				   .append("Cajas de comida: "+sondaDTO.getCondicionesNaturalesEntity().getCajasComida()+" \n")
-//				   .append("Estado vital: "+sondaDTO.getCondicionesNaturalesEntity().getEstadoCondicionalHumano()+" \n")
-//				   .append(" \n")
-//				   .append("------------------------------------------------------- \n")
-//				   .append("------------------------------------------------------- \n")
-//				   .append(" \n");
+			sondaDTO = (SondaDTO) respuesta.get("SondaDTO");
+			
+			if(sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion() != null) {
+				// Se multiplica la cantidad de dias que se van hacer de expedicion, por las horas que tiene un planeta
+				horasDiaPlanetaSeleccionado = new BigDecimal(planeta.getDiaEnHoras()).multiply(new BigDecimal(sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion()));
+			}
+			
+			stBuild = new StringBuilder();
+			stBuild.append("Informe n° 0 - Primer dia dentro de la nave \n")
+				   .append(" \n");
+			
+			if(planeta.getDiaEnHoras() > horasTierra) {
+				
+				horasDiferencia = horasTierra * sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion();
+				horasDiferenciaTierra = horasDiaPlanetaSeleccionado.subtract(new BigDecimal(horasDiferencia));
+				horasXDia = horasDiferenciaTierra.divide(new BigDecimal(sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion()));
+				
+				stBuild.append("Se identifica que existe diferencia de tiempo en comparacion a la Tierra \n");
+			
+				if(horasXDia.compareTo(new BigDecimal(1)) == 0) {
+					stBuild.append("El promedio calibrado de tiempo es de: "+horasXDia+" hora de diferencia por dia  \n");
+				} else {
+					stBuild.append("El promedio calibrado de tiempo es de: "+horasXDia+" horas de diferencia por dia  \n");
+				}
+			}
+			
+			stBuild.append(" \n");
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -213,42 +244,153 @@ public class SondaServiceImpl implements SondaService {
 		return stBuild.toString();
 	}
 	
-	private String definirPrimerDiaTranscurrido(Planeta planeta) {
+	private String inicioInvestigacionSupervivencia(SondaDTO sondaDTO) {
 		StringBuilder stBuild = null;
-		SondaDTO sondaDTO = null;
-		BigDecimal horasDiaPlaneta = null;
+		Integer consumoRacion = 0;
+		Integer consumoAgua = 0;
+		
+		Integer racionXCaja = 0;
+		Integer botellaXBarril = 0;
+		
+		Integer consumoTotalRacionXDia = 0;
+		Integer consumoTotalAguaXDia = 0;
 		try {
-			sondaDTO = (SondaDTO) respuesta.get("SondaDTO");
+			consumoRacion = (Integer) planDeSupervivencia.get("racion");
+			consumoAgua= (Integer) planDeSupervivencia.get("agua");
 			
-			if(sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion() != null) {
-				// Se multiplica la cantidad de dias que se van hacer de expedicion, por las horas que tiene un planeta
-				horasDiaPlaneta = new BigDecimal(planeta.getDiaEnHoras()).multiply(new BigDecimal(sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion()));
-				
-				
-				
-				System.out.println("Esto que seria?? xd : "+horasDiaPlaneta.toString());
-			}
+			racionXCaja = sondaDTO.getCondicionesNaturalesEntity().getCajasComida() * 25;
+			botellaXBarril = sondaDTO.getCondicionesNaturalesEntity().getBarrilAgua() * 50;
 			
-			
-			
-			
-			
+			Integer[] racionesRestantes = new Integer[racionXCaja];
+			Integer[] aguaRestante = new Integer[botellaXBarril];
 			
 			stBuild = new StringBuilder();
-			stBuild.append("Informe n° 0 - Primer dia dentro de la nave \n")
-				   .append(" \n")
-				   .append("------------------------------------------------------- \n")
-				   .append("------------------------------------------------------- \n")
-				   .append(" \n");
-			if(!planeta.getNombrePlaneta().toLowerCase().equals("tierra")) {
-				stBuild.append("Se identifica que existe diferencia de tiempo en comparacion a la Tierra \n")
-					   .append(" \n")
-					   .append(" \n")
-					   .append(" \n")
-					   .append(" \n")
-					   .append(" \n");
+			stBuild.append("Resultados \n");
+			
+			for(Integer dia = 0; dia <= sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion(); dia++) {
+				
+				consumoTotalRacionXDia = racionXCaja - consumoRacion * 1;
+				racionXCaja = consumoTotalRacionXDia;
+				
+				consumoTotalAguaXDia = botellaXBarril - consumoAgua * 1;
+				botellaXBarril = consumoTotalAguaXDia;
+				
+				racionesRestantes[dia] = consumoTotalRacionXDia;
+	            aguaRestante[dia] = consumoTotalAguaXDia;
+
+	            stBuild.append("Día ").append(dia).append(": ").append("Raciones restantes: ")
+	                    .append(racionesRestantes[dia]).append(", Agua restante: ").append(aguaRestante[dia])
+	                    .append("\n");
 			}
-				   
+			
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return stBuild.toString();
+	}
+	
+	private String darInformeDiagnosticoVital(Planeta planeta) {
+		StringBuilder stBuild = null;
+		SondaDTO sondaDTO = null;
+		Humano humano = null;
+		try {
+			stBuild = new StringBuilder();
+			sondaDTO = (SondaDTO) respuesta.get("SondaDTO");
+			humano = humanFactoryService.createHuman(sondaDTO.getCondicionesNaturalesEntity().getEstadoCondicionalHumano());
+			
+			stBuild = new StringBuilder();
+			stBuild.append("Informe de bienestar \n")
+				   .append("\n")
+				   .append("Estado vital: "+humano.getEstadoVital()+"% \n")
+				   .append("Salud fisica: "+humano.getSaludFisica()+"% \n")
+				   .append("Salud mental: "+humano.getSaludMental()+"% \n")
+				   .append("Temperatura actual: "+humano.getTemperaturaInterna()+"% \n")
+				   .append(" \n");
+			
+			if(humano.getEstadoVital() > 80 && 
+					sondaDTO.getCondicionesNaturalesEntity().getCalidadTraje() > 85
+					&& planeta.getGravedad().compareTo(new BigDecimal(20)) <= 0) {
+				stBuild.append("Las condiciones humanas y el traje soportan la gravedad \n")
+					   .append("es posible realizar expedicion e investigacion \n");
+			} else {
+				stBuild.append("Se identifica que la gravedad del planeta es demasiado fuerte para explorar, \n")
+					   .append("Se descarta la opcion de expedicion e investigacion \n");
+			}
+			
+			stBuild.append("\n");
+			stBuild.append(definirPlan(sondaDTO, planeta, humano));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return stBuild.toString();
+	}
+	
+	private String definirPlan(SondaDTO sondaDTO, Planeta planeta, Humano humano) {
+		StringBuilder stBuild = null;
+		try {
+			
+			planDeSupervivencia = new TreeMap<>();
+			
+			stBuild = new StringBuilder();
+			stBuild.append("Se ha realizado estudio de consumo de provisiones \n")
+				   .append(consumoRaciones(humano))
+				   .append(consumoAgua(humano));
+			
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return stBuild.toString();
+	}
+	
+	private String consumoRaciones(Humano humano) {
+		StringBuilder stBuild = null;
+		try {
+			stBuild = new StringBuilder();
+			if(humano.getEstadoVital() >= 85) {
+				planDeSupervivencia.put("racion", 3);
+				stBuild.append("La cantidad de raciones a consumir por dia es de: 3 por dia \n");
+			}
+							
+			if(humano.getEstadoVital() <= 70) {
+				planDeSupervivencia.put("racion", 4);
+				stBuild.append("La cantidad de raciones a consumir por dia es de: 4 por dia \n");
+			}
+			
+			if(humano.getEstadoVital() <= 50) {
+				planDeSupervivencia.put("racion", 5);
+				stBuild.append("La cantidad de raciones a consumir por dia es de: 5 por dia \n");
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return stBuild.toString();
+	}
+	
+	private String consumoAgua(Humano humano) {
+		StringBuilder stBuild = null;
+		try {
+			
+			stBuild = new StringBuilder();
+			if(humano.getEstadoVital() >= 85) {
+				planDeSupervivencia.put("agua", 2);
+				stBuild.append("La cantidad de agua a consumir por dia es de: 2 botellas por dia \n");
+			}
+							
+			if(humano.getEstadoVital() <= 70) {
+				planDeSupervivencia.put("agua", 3);
+				stBuild.append("La cantidad de agua a consumir por dia es de: 3 botellas por dia \n");
+			}
+			
+			if(humano.getEstadoVital() <= 50) {
+				planDeSupervivencia.put("agua", 5);
+				stBuild.append("La cantidad de agua a consumir por dia es de: 5 botellas por dia \n");
+			}
 			
 		} catch (Exception e) {
 			e.printStackTrace();
