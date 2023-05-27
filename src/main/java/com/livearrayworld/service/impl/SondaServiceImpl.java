@@ -82,7 +82,6 @@ public class SondaServiceImpl implements SondaService {
 		StringBuilder stBuild = null;
 		try {
 			
-			
 			stBuild = new StringBuilder();
 			stBuild.append(pintarNave(planeta));
 			stBuild.append(darInformeDeEstado(planeta));
@@ -218,7 +217,7 @@ public class SondaServiceImpl implements SondaService {
 			}
 			
 			stBuild = new StringBuilder();
-			stBuild.append("Informe n° 0 - Primer dia dentro de la nave \n")
+			stBuild.append("Informe General \n")
 				   .append(" \n");
 			
 			if(planeta.getDiaEnHoras() > horasTierra) {
@@ -254,9 +253,18 @@ public class SondaServiceImpl implements SondaService {
 		
 		Integer consumoTotalRacionXDia = 0;
 		Integer consumoTotalAguaXDia = 0;
+		Humano humano = null;
+		Double desgasteVital = 0.95;
+		Double desgasteSaludFisica = 0.01;
+		Double desgasteSaludMental = 0.01;
+		Double desgasteConcentracion = 0.04;
+		BigDecimal tiempoDeDescanso = new BigDecimal("0");
+		BigDecimal tiempoEjercicio = new BigDecimal("0");
+		Integer restaDeSalud = 0;
 		try {
 			consumoRacion = (Integer) planDeSupervivencia.get("racion");
 			consumoAgua= (Integer) planDeSupervivencia.get("agua");
+			humano = (Humano) respuesta.get("Humano");
 			
 			racionXCaja = sondaDTO.getCondicionesNaturalesEntity().getCajasComida() * 25;
 			botellaXBarril = sondaDTO.getCondicionesNaturalesEntity().getBarrilAgua() * 50;
@@ -265,9 +273,10 @@ public class SondaServiceImpl implements SondaService {
 			Integer[] aguaRestante = new Integer[botellaXBarril];
 			
 			stBuild = new StringBuilder();
-			stBuild.append("Resultados \n");
+			stBuild.append("Resultados \n")
+				   .append("\n");
 			
-			for(Integer dia = 0; dia <= sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion(); dia++) {
+			for(Integer dia = 1; dia <= sondaDTO.getCondicionesNaturalesEntity().getDiasExpedicion(); dia++) {
 				
 				consumoTotalRacionXDia = racionXCaja - consumoRacion * 1;
 				racionXCaja = consumoTotalRacionXDia;
@@ -277,10 +286,43 @@ public class SondaServiceImpl implements SondaService {
 				
 				racionesRestantes[dia] = consumoTotalRacionXDia;
 	            aguaRestante[dia] = consumoTotalAguaXDia;
-
-	            stBuild.append("Día ").append(dia).append(": ").append("Raciones restantes: ")
-	                    .append(racionesRestantes[dia]).append(", Agua restante: ").append(aguaRestante[dia])
-	                    .append("\n");
+	            
+	            Integer factorVital = (int) (humano.getEstadoVital() * desgasteVital);
+	            factorVital = humano.getEstadoVital() - factorVital; 
+	            humano.setEstadoVital(humano.getEstadoVital() - factorVital);
+	            
+	            Integer factorSaludFisica = (int) (humano.getSaludFisica() * desgasteSaludFisica);
+	            factorSaludFisica = humano.getSaludFisica() - factorSaludFisica;
+	            restaDeSalud = humano.getSaludFisica() - factorSaludFisica;
+	            humano.setSaludFisica(humano.getSaludFisica() - restaDeSalud);
+	            
+	            Integer factorSaludMental = (int) (humano.getSaludMental() * desgasteSaludMental);
+	            factorSaludMental = humano.getSaludMental() - factorSaludMental;
+	            
+	            humano.setSaludMental(factorSaludMental);
+	            
+	            Integer factorConcentracion = (int) (humano.getConcentracion() * desgasteConcentracion);
+	            factorConcentracion = humano.getConcentracion() - factorConcentracion;
+	            humano.setConcentracion(factorConcentracion);
+	            
+	            tiempoDeDescanso = tiempoDeDescanso.add(new BigDecimal(humano.getTiempoDeDescanso()));
+	            tiempoEjercicio = tiempoDeDescanso.add(new BigDecimal(humano.getTiempoEjercicio()));
+	            
+	            stBuild.append("Día ")
+	            	   .append(dia)
+	            	   .append(": ")
+	            	   .append("Raciones restantes: ")
+	            	   .append(racionesRestantes[dia])
+	            	   .append(", Agua restante: ")
+	            	   .append(aguaRestante[dia])
+	            	   .append("\n")
+	            	   .append("Se ha producido cambio en el estado vital: "+humano.getEstadoVital()+"% \n")
+	            	   .append("Se identifica cambio en salud: "+humano.getSaludFisica()+"% \n")
+	            	   .append("Se identifica cambio en salud mental: "+humano.getSaludMental()+"% \n")
+	            	   .append("La concentracion se visto afectada: "+humano.getConcentracion()+"% \n")
+	            	   .append("Tiempo de descanso o sueño total: "+tiempoDeDescanso.toString()+" horas \n")
+	            	   .append("Tiempo de ejercicio fisico realizado "+tiempoEjercicio.toString()+" horas \n")
+	            	   .append("\n");
 			}
 			
 			
@@ -299,6 +341,7 @@ public class SondaServiceImpl implements SondaService {
 			stBuild = new StringBuilder();
 			sondaDTO = (SondaDTO) respuesta.get("SondaDTO");
 			humano = humanFactoryService.createHuman(sondaDTO.getCondicionesNaturalesEntity().getEstadoCondicionalHumano());
+			respuesta.put("Humano", humano);
 			
 			stBuild = new StringBuilder();
 			stBuild.append("Informe de bienestar \n")
